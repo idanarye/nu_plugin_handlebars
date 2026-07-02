@@ -1,2 +1,2 @@
 pub mod conversions;
-pub mod handlebars_template_creation;
+pub mod handlebars_tools;

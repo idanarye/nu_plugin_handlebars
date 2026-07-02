@@ -2,27 +2,32 @@ use std::collections::HashMap;
 
 use handlebars::{
     Context, Handlebars, Helper, HelperDef, RenderContext, RenderError, RenderErrorReason,
-    ScopedJson,
+    Renderable, ScopedJson, Template,
 };
 use nu_plugin::EngineInterface;
 use nu_protocol::engine::Closure;
-use nu_protocol::{LabeledError, Spanned, Value};
+use nu_protocol::{LabeledError, Span, Spanned};
 
 use crate::conversions::nu_value_to_json_value;
 
-pub fn create_handlebars_template<'a>(
+pub fn render_toplevel_handlebars_template(
+    template: &Template,
+    registry: &Handlebars,
+    context: &Context,
+    span: Span,
+) -> Result<String, LabeledError> {
+    let mut rc = RenderContext::new(None);
+    template
+        .renders(registry, context, &mut rc)
+        .map_err(|err| LabeledError::new(err.to_string()).with_label("handlebars rendering", span))
+}
+
+pub fn create_handlebars_registry<'a>(
     engine: &'_ EngineInterface,
-    template_text: &Value,
     partials: HashMap<String, Spanned<String>>,
     helpers: HashMap<String, Spanned<Closure>>,
 ) -> Result<Handlebars<'a>, LabeledError> {
     let mut hb = Handlebars::new();
-
-    hb.register_template_string("", template_text.as_str()?)
-        .map_err(|err| {
-            LabeledError::new(err.to_string())
-                .with_label("handlebars syntax error", template_text.span())
-        })?;
 
     for (name, text) in partials.into_iter() {
         hb.register_partial(&name, text.item).map_err(|err| {
