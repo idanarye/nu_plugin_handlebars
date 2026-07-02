@@ -1,8 +1,9 @@
-use handlebars::{Context, Handlebars, Template};
+use handlebars::Context;
 use nu_plugin::{
     EngineInterface, EvaluatedCall, MsgPackSerializer, Plugin, PluginCommand, serve_plugin,
 };
 use nu_plugin_handlebars::conversions::nu_value_to_json_value;
+use nu_plugin_handlebars::handlebars_template_creation::create_handlebars_template;
 use nu_protocol::{
     LabeledError, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
@@ -61,12 +62,10 @@ impl PluginCommand for HandlebarsCommand {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let mut hb = Handlebars::new();
-
-        let template_text = call.positional[0].as_str()?;
-        let template =
-            Template::compile(template_text).map_err(|err| LabeledError::new(err.to_string()))?;
-        hb.register_template("", template);
+        let hb = create_handlebars_template(
+            &call.positional[0],
+            call.get_flag("partials")?.unwrap_or_default(),
+        )?;
 
         let input_span = input.span();
 
