@@ -3,7 +3,9 @@ use nu_plugin::{
     EngineInterface, EvaluatedCall, MsgPackSerializer, Plugin, PluginCommand, serve_plugin,
 };
 use nu_plugin_handlebars::conversions::nu_value_to_json_value;
-use nu_protocol::{LabeledError, PipelineData, Signature, Span, SyntaxShape, Type, Value};
+use nu_protocol::{
+    LabeledError, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+};
 
 pub struct HandlebarsPlugin;
 
@@ -55,7 +57,7 @@ impl PluginCommand for HandlebarsCommand {
     fn run(
         &self,
         _plugin: &Self::Plugin,
-        _engine: &EngineInterface,
+        engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
@@ -66,17 +68,62 @@ impl PluginCommand for HandlebarsCommand {
             Template::compile(template_text).map_err(|err| LabeledError::new(err.to_string()))?;
         hb.register_template("", template);
 
+        let input_span = input.span();
+
         Ok(match input {
-            PipelineData::Empty => todo!(),
-            PipelineData::Value(value, _pipeline_metadata) => {
+            PipelineData::Empty => {
+                Err(LabeledError::new("Missing input").with_label("needs input", call.head))?
+            }
+            PipelineData::Value(Value::List { vals, .. }, pipeline_metadata) => {
+                PipelineData::ListStream(
+                    ListStream::new(
+                        vals.into_iter().map(move |value| {
+                            let context = match nu_value_to_json_value(&value) {
+                                Ok(json_value) => Context::from(json_value),
+                                Err(err) => {
+                                    return Value::error(
+                                        ShellError::LabeledError(Box::new(err)),
+                                        value.span(),
+                                    );
+                                }
+                            };
+                            Value::string(
+                                hb.render_with_context("", &context).unwrap(),
+                                Span::default(),
+                            )
+                        }),
+                        input_span.expect("piepline value should have a span"),
+                        engine.signals().clone(),
+                    ),
+                    pipeline_metadata,
+                )
+            }
+            PipelineData::Value(value, pipeline_metadata) => {
                 let context = Context::from(nu_value_to_json_value(&value)?);
-                let value = Value::string(
+                let rendered = Value::string(
                     hb.render_with_context("", &context).unwrap(),
                     Span::default(),
                 );
-                PipelineData::Value(value, None)
+                PipelineData::Value(rendered, pipeline_metadata)
             }
-            PipelineData::ListStream(_list_stream, _pipeline_metadata) => todo!(),
+            PipelineData::ListStream(list_stream, pipeline_metadata) => PipelineData::ListStream(
+                list_stream.map(move |value| {
+                    let context = match nu_value_to_json_value(&value) {
+                        Ok(json_value) => Context::from(json_value),
+                        Err(err) => {
+                            return Value::error(
+                                ShellError::LabeledError(Box::new(err)),
+                                value.span(),
+                            );
+                        }
+                    };
+                    Value::string(
+                        hb.render_with_context("", &context).unwrap(),
+                        Span::default(),
+                    )
+                }),
+                pipeline_metadata,
+            ),
             PipelineData::ByteStream(_byte_stream, _pipeline_metadata) => todo!(),
         })
     }
