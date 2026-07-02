@@ -8,7 +8,7 @@ use nu_plugin::EngineInterface;
 use nu_protocol::engine::Closure;
 use nu_protocol::{LabeledError, Span, Spanned};
 
-use crate::conversions::nu_value_to_json_value;
+use crate::conversions::{json_value_to_nu, nu_value_to_json_value};
 
 pub fn render_toplevel_handlebars_template(
     template: &Template,
@@ -60,14 +60,22 @@ struct NuClosureHelper {
 impl HelperDef for NuClosureHelper {
     fn call_inner<'reg: 'rc, 'rc>(
         &self,
-        _helper: &Helper<'rc>,
+        helper: &Helper<'rc>,
         _registry: &'reg Handlebars<'reg>,
         _context: &'rc Context,
         _render_context: &mut RenderContext<'reg, 'rc>,
     ) -> Result<ScopedJson<'rc>, RenderError> {
         let closure_result = self
             .engine
-            .eval_closure(&self.closure, vec![], None)
+            .eval_closure(
+                &self.closure,
+                helper
+                    .params()
+                    .iter()
+                    .map(|path_and_json| json_value_to_nu(path_and_json.value()))
+                    .collect::<Result<_, _>>()?,
+                None,
+            )
             .map_err(|err| RenderErrorReason::Other(err.to_string()))?;
         Ok(ScopedJson::Derived(
             nu_value_to_json_value(&closure_result)
