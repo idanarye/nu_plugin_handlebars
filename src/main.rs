@@ -1,7 +1,9 @@
+use handlebars::{Context, Handlebars, Template};
 use nu_plugin::{
     EngineInterface, EvaluatedCall, MsgPackSerializer, Plugin, PluginCommand, serve_plugin,
 };
-use nu_protocol::{LabeledError, PipelineData, Signature, SyntaxShape, Type};
+use nu_plugin_handlebars::conversions::nu_value_to_json_value;
+use nu_protocol::{LabeledError, PipelineData, Signature, Span, SyntaxShape, Type, Value};
 
 pub struct HandlebarsPlugin;
 
@@ -52,12 +54,31 @@ impl PluginCommand for HandlebarsCommand {
 
     fn run(
         &self,
-        plugin: &Self::Plugin,
-        engine: &EngineInterface,
+        _plugin: &Self::Plugin,
+        _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        Ok(PipelineData::empty())
+        let mut hb = Handlebars::new();
+
+        let template_text = call.positional[0].as_str()?;
+        let template =
+            Template::compile(template_text).map_err(|err| LabeledError::new(err.to_string()))?;
+        hb.register_template("", template);
+
+        Ok(match input {
+            PipelineData::Empty => todo!(),
+            PipelineData::Value(value, _pipeline_metadata) => {
+                let context = Context::from(nu_value_to_json_value(&value)?);
+                let value = Value::string(
+                    hb.render_with_context("", &context).unwrap(),
+                    Span::default(),
+                );
+                PipelineData::Value(value, None)
+            }
+            PipelineData::ListStream(_list_stream, _pipeline_metadata) => todo!(),
+            PipelineData::ByteStream(_byte_stream, _pipeline_metadata) => todo!(),
+        })
     }
 }
 
