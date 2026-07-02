@@ -63,8 +63,10 @@ impl PluginCommand for HandlebarsCommand {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let hb = create_handlebars_template(
+            engine,
             &call.positional[0],
             call.get_flag("partials")?.unwrap_or_default(),
+            call.get_flag("helpers")?.unwrap_or_default(),
         )?;
 
         let input_span = input.span();
