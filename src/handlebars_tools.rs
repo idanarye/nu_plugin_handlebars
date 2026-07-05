@@ -66,7 +66,9 @@ impl HelperDef for NuClosureHelper {
         _render_context: &mut RenderContext<'reg, 'rc>,
     ) -> Result<ScopedJson<'rc>, RenderError> {
         if helper.is_block() {
-            return Err(RenderErrorReason::Other("Block helpers are not supported".to_owned()).into());
+            return Err(
+                RenderErrorReason::Other("Block helpers are not supported".to_owned()).into(),
+            );
         }
         let closure_result = self
             .engine
