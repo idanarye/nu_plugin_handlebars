@@ -22,11 +22,11 @@ pub fn render_toplevel_handlebars_template(
         .map_err(|err| LabeledError::new(err.to_string()).with_label("handlebars rendering", span))
 }
 
-pub fn create_handlebars_registry<'a>(
-    engine: &'_ EngineInterface,
+pub fn create_handlebars_registry(
+    engine: &EngineInterface,
     partials: HashMap<String, Spanned<String>>,
     helpers: HashMap<String, Spanned<Closure>>,
-) -> Result<Handlebars<'a>, LabeledError> {
+) -> Result<Handlebars<'static>, LabeledError> {
     let mut hb = Handlebars::new();
 
     for (name, text) in partials.into_iter() {

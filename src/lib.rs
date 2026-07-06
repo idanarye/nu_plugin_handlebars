@@ -1,3 +1,4 @@
 pub mod command;
-pub mod conversions;
-pub mod handlebars_tools;
+mod conversions;
+mod custom_value;
+mod handlebars_tools;
