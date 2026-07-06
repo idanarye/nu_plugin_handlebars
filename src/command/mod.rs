@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 use nu_plugin::{Plugin, PluginCommand};
 use nu_protocol::{PipelineData, Signature, Value};
@@ -6,11 +6,12 @@ use nu_protocol::{PipelineData, Signature, Value};
 use crate::custom_value::CustomCollections;
 
 mod eval;
+mod list;
 mod new;
 
 #[derive(Default)]
 pub struct HandlebarsPlugin {
-    pub collections: Mutex<CustomCollections>,
+    pub collections: RwLock<CustomCollections>,
 }
 
 impl Plugin for HandlebarsPlugin {
@@ -18,15 +19,18 @@ impl Plugin for HandlebarsPlugin {
         env!("CARGO_PKG_VERSION").to_owned()
     }
 
-    fn commands(&self) -> Vec<Box<dyn nu_plugin::PluginCommand<Plugin = Self>>> {
-        vec![
+    fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
+        [
             Box::new(MidNodeCommand {
                 name: "handlebars",
                 description: "Operate with the Handlebars template engine",
-            }),
+            }) as Box<dyn PluginCommand<Plugin = Self>>,
             Box::new(eval::HandlebarsEvalCommand),
             Box::new(new::HandlebarsNewCommand),
         ]
+        .into_iter()
+        .chain(list::gen_commands())
+        .collect()
     }
 
     fn custom_value_dropped(
@@ -35,7 +39,6 @@ impl Plugin for HandlebarsPlugin {
         custom_value: Box<dyn nu_protocol::CustomValue>,
     ) -> Result<(), nu_protocol::LabeledError> {
         eprintln!("Dropping {:?}", custom_value);
-        println!("{:?}", self.collections.lock());
         Ok(())
     }
 }

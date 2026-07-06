@@ -7,7 +7,7 @@ use uuid::Uuid;
 pub trait CustomReference: Clone {
     type Data;
 
-    fn uuid(&self) -> Uuid;
+    fn uuid(&self) -> &Uuid;
 }
 
 #[derive(Debug)]

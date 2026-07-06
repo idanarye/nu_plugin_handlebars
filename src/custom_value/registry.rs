@@ -47,7 +47,7 @@ impl CustomValue for HandlebarsRegistry {
 impl CustomReference for HandlebarsRegistry {
     type Data = Handlebars<'static>;
 
-    fn uuid(&self) -> Uuid {
-        self.0
+    fn uuid(&self) -> &Uuid {
+        &self.0
     }
 }

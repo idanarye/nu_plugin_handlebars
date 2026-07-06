@@ -33,8 +33,8 @@ impl PluginCommand for HandlebarsNewCommand {
         _input: PipelineData,
     ) -> Result<PipelineData, nu_protocol::LabeledError> {
         let reference = HandlebarsRegistry(Uuid::new_v4());
-        plugin.collections.lock().unwrap().registries.insert(
-            reference.uuid(),
+        plugin.collections.write().unwrap().registries.insert(
+            *reference.uuid(),
             CustomEntry {
                 reference: reference.clone(),
                 refcount: 0,
