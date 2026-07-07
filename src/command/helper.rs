@@ -43,7 +43,7 @@ impl PluginCommand for HandlebarsHelperCommand {
     fn run(
         &self,
         plugin: &Self::Plugin,
-        engine: &nu_plugin::EngineInterface,
+        _engine: &nu_plugin::EngineInterface,
         call: &nu_plugin::EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
@@ -58,13 +58,9 @@ impl PluginCommand for HandlebarsHelperCommand {
                 .with_label("not registered", input.span().unwrap_or_default())
                 .with_help("This is probably a bug in the nu_plugin_handlebars"));
         };
-        registry_entry.data.register_helper(
-            &name,
-            Box::new(NuClosureHelper {
-                engine: engine.clone(),
-                closure,
-            }),
-        );
+        registry_entry
+            .data
+            .register_helper(&name, Box::new(NuClosureHelper { closure }));
         registry_entry.refcount += 1;
         Ok(input)
     }

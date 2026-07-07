@@ -1,5 +1,5 @@
 use handlebars::Handlebars;
-use nu_protocol::{CustomValue, ShellError, Span, Value};
+use nu_protocol::{CustomValue, FromValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -50,5 +50,23 @@ impl CustomReference for HandlebarsRegistry {
 
     fn uuid(&self) -> &Uuid {
         &self.0
+    }
+}
+
+impl FromValue for HandlebarsRegistry {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        let custom = v.as_custom_value()?;
+        custom
+            .as_any()
+            .downcast_ref()
+            .ok_or_else(|| ShellError::TypeMismatch {
+                err_message: format!("Expected HandlebarsRegistry, got {}", custom.type_name()),
+                span: v.span(),
+            })
+            .cloned()
+    }
+
+    fn expected_type() -> nu_protocol::Type {
+        nu_protocol::Type::custom("HandlebarsRegistry")
     }
 }

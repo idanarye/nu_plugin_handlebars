@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::cell::RefCell;
 
 use handlebars::{
     Context, Handlebars, Helper, HelperDef, RenderContext, RenderError, RenderErrorReason,
@@ -10,42 +10,30 @@ use nu_protocol::{LabeledError, Span, Spanned};
 
 use crate::conversions::{json_value_to_nu, nu_value_to_json_value};
 
+thread_local! {
+    static ENGINE_INTERFACE: RefCell<Option<EngineInterface>> = const { RefCell::new(None) };
+}
+
+pub fn with_engine_in_scope<T>(engine: EngineInterface, dlg: impl FnOnce() -> T) -> T {
+    let old_value = ENGINE_INTERFACE.replace(Some(engine));
+    let result = dlg();
+    ENGINE_INTERFACE.set(old_value);
+    result
+}
+
 pub fn render_toplevel_handlebars_template(
+    engine: EngineInterface,
     template: &Template,
     registry: &Handlebars,
     context: &Context,
     span: Span,
 ) -> Result<String, LabeledError> {
     let mut rc = RenderContext::new(None);
-    template
-        .renders(registry, context, &mut rc)
-        .map_err(|err| LabeledError::new(err.to_string()).with_label("handlebars rendering", span))
-}
-
-pub fn create_handlebars_registry(
-    engine: &EngineInterface,
-    partials: HashMap<String, Spanned<String>>,
-    helpers: HashMap<String, Spanned<Closure>>,
-) -> Result<Handlebars<'static>, LabeledError> {
-    let mut hb = Handlebars::new();
-
-    for (name, text) in partials.into_iter() {
-        hb.register_partial(&name, text.item).map_err(|err| {
-            LabeledError::new(err.to_string()).with_label("handlebars syntax error", text.span)
-        })?;
-    }
-
-    for (name, closure) in helpers.into_iter() {
-        hb.register_helper(
-            &name,
-            Box::new(NuClosureHelper {
-                engine: engine.clone(),
-                closure,
-            }),
-        );
-    }
-
-    Ok(hb)
+    with_engine_in_scope(engine, || {
+        template.renders(registry, context, &mut rc).map_err(|err| {
+            LabeledError::new(err.to_string()).with_label("handlebars rendering", span)
+        })
+    })
 }
 
 handlebars::handlebars_helper!(foo: | | {
@@ -53,7 +41,6 @@ handlebars::handlebars_helper!(foo: | | {
 });
 
 pub struct NuClosureHelper {
-    pub engine: EngineInterface,
     pub closure: Spanned<Closure>,
 }
 
@@ -70,18 +57,21 @@ impl HelperDef for NuClosureHelper {
                 RenderErrorReason::Other("Block helpers are not supported".to_owned()).into(),
             );
         }
-        let closure_result = self
-            .engine
-            .eval_closure(
-                &self.closure,
-                helper
-                    .params()
-                    .iter()
-                    .map(|path_and_json| json_value_to_nu(path_and_json.value()))
-                    .collect::<Result<_, _>>()?,
-                None,
-            )
-            .map_err(|err| RenderErrorReason::Other(err.to_string()))?;
+        let closure_result = ENGINE_INTERFACE.with_borrow(|engine| {
+            engine
+                .as_ref()
+                .expect("Should have one registered")
+                .eval_closure(
+                    &self.closure,
+                    helper
+                        .params()
+                        .iter()
+                        .map(|path_and_json| json_value_to_nu(path_and_json.value()))
+                        .collect::<Result<_, _>>()?,
+                    None,
+                )
+                .map_err(|err| RenderErrorReason::Other(err.to_string()))
+        })?;
         Ok(ScopedJson::Derived(
             nu_value_to_json_value(&closure_result)
                 .map_err(|err| RenderErrorReason::Other(err.to_string()))?,

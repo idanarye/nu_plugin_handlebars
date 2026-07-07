@@ -1,11 +1,12 @@
-use handlebars::{Context, Template};
+use handlebars::{Context, Handlebars, Template};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    LabeledError, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    LabeledError, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 use crate::conversions::nu_value_to_json_value;
-use crate::handlebars_tools::{create_handlebars_registry, render_toplevel_handlebars_template};
+use crate::custom_value::{CustomReference, HandlebarsRegistry};
+use crate::handlebars_tools::render_toplevel_handlebars_template;
 
 use super::HandlebarsPlugin;
 
@@ -21,6 +22,12 @@ impl PluginCommand for HandlebarsEvalCommand {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
             .required("template", SyntaxShape::String, "The Handlebars template as string (not file path)")
+            .named(
+                "with",
+                SyntaxShape::Any,
+                "Evaluate the template using an Handlebars registry (can be created with `handlebars new`)",
+                None
+            )
             .named(
                 "helpers",
                 SyntaxShape::Record(Default::default()),
@@ -56,11 +63,22 @@ impl PluginCommand for HandlebarsEvalCommand {
             LabeledError::new(err.to_string())
                 .with_label("handlebars syntax error", template_text.span())
         })?;
-        let hb = create_handlebars_registry(
-            engine,
-            call.get_flag("partials")?.unwrap_or_default(),
-            call.get_flag("helpers")?.unwrap_or_default(),
-        )?;
+        let hb_memory_slot;
+        let registry_lock;
+        let hb = if let Some(registry_reference) =
+            call.get_flag::<Spanned<HandlebarsRegistry>>("with")?
+        {
+            registry_lock = _plugin.collections.registries.read().unwrap();
+            let Some(registry) = registry_lock.get(registry_reference.item.uuid()) else {
+                return Err(LabeledError::new("HandlebarsRegistry is not registered")
+                    .with_label("not registered", registry_reference.span)
+                    .with_help("This is probably a bug in the nu_plugin_handlebars"));
+            };
+            &registry.data
+        } else {
+            hb_memory_slot = Handlebars::new();
+            &hb_memory_slot
+        };
 
         let input_span = input.span();
 
@@ -70,30 +88,35 @@ impl PluginCommand for HandlebarsEvalCommand {
             }
             PipelineData::Value(Value::List { vals, .. }, pipeline_metadata) => {
                 let call_span = call.head;
-                PipelineData::ListStream(
-                    ListStream::new(
-                        vals.into_iter().map(move |value| {
-                            let context = match nu_value_to_json_value(&value) {
-                                Ok(json_value) => Context::from(json_value),
-                                Err(err) => {
-                                    return Value::error(
+                PipelineData::Value(
+                    Value::list(
+                        vals.into_iter()
+                            .map(move |value| {
+                                let context = match nu_value_to_json_value(&value) {
+                                    Ok(json_value) => Context::from(json_value),
+                                    Err(err) => {
+                                        return Value::error(
+                                            ShellError::LabeledError(Box::new(err)),
+                                            value.span(),
+                                        );
+                                    }
+                                };
+                                match render_toplevel_handlebars_template(
+                                    engine.clone(),
+                                    &template,
+                                    hb,
+                                    &context,
+                                    call_span,
+                                ) {
+                                    Ok(ok) => Value::string(ok, Span::default()),
+                                    Err(err) => Value::error(
                                         ShellError::LabeledError(Box::new(err)),
                                         value.span(),
-                                    );
+                                    ),
                                 }
-                            };
-                            match render_toplevel_handlebars_template(
-                                &template, &hb, &context, call_span,
-                            ) {
-                                Ok(ok) => Value::string(ok, Span::default()),
-                                Err(err) => Value::error(
-                                    ShellError::LabeledError(Box::new(err)),
-                                    value.span(),
-                                ),
-                            }
-                        }),
+                            })
+                            .collect(),
                         input_span.expect("piepline value should have a span"),
-                        engine.signals().clone(),
                     ),
                     pipeline_metadata,
                 )
@@ -101,36 +124,47 @@ impl PluginCommand for HandlebarsEvalCommand {
             PipelineData::Value(value, pipeline_metadata) => {
                 let context = Context::from(nu_value_to_json_value(&value)?);
                 let rendered = Value::string(
-                    render_toplevel_handlebars_template(&template, &hb, &context, call.head)?,
+                    render_toplevel_handlebars_template(
+                        engine.clone(),
+                        &template,
+                        hb,
+                        &context,
+                        call.head,
+                    )?,
                     Span::default(),
                 );
                 PipelineData::Value(rendered, pipeline_metadata)
             }
-            PipelineData::ListStream(list_stream, pipeline_metadata) => PipelineData::ListStream(
-                list_stream.map(move |value| {
-                    let context = match nu_value_to_json_value(&value) {
-                        Ok(json_value) => Context::from(json_value),
-                        Err(err) => {
-                            return Value::error(
-                                ShellError::LabeledError(Box::new(err)),
-                                value.span(),
-                            );
+            PipelineData::ListStream(list_stream, pipeline_metadata) => {
+                let hb = hb.to_owned();
+                let engine = engine.clone();
+                PipelineData::ListStream(
+                    list_stream.map(move |value| {
+                        let context = match nu_value_to_json_value(&value) {
+                            Ok(json_value) => Context::from(json_value),
+                            Err(err) => {
+                                return Value::error(
+                                    ShellError::LabeledError(Box::new(err)),
+                                    value.span(),
+                                );
+                            }
+                        };
+                        match render_toplevel_handlebars_template(
+                            engine.clone(),
+                            &template,
+                            &hb,
+                            &context,
+                            value.span(),
+                        ) {
+                            Ok(ok) => Value::string(ok, Span::default()),
+                            Err(err) => {
+                                Value::error(ShellError::LabeledError(Box::new(err)), value.span())
+                            }
                         }
-                    };
-                    match render_toplevel_handlebars_template(
-                        &template,
-                        &hb,
-                        &context,
-                        value.span(),
-                    ) {
-                        Ok(ok) => Value::string(ok, Span::default()),
-                        Err(err) => {
-                            Value::error(ShellError::LabeledError(Box::new(err)), value.span())
-                        }
-                    }
-                }),
-                pipeline_metadata,
-            ),
+                    }),
+                    pipeline_metadata,
+                )
+            }
             PipelineData::ByteStream(_byte_stream, _pipeline_metadata) => {
                 return Err(ShellError::PipelineMismatch {
                     exp_input_type: "Record or stream/list of records".to_owned(),
