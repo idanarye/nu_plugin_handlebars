@@ -7,6 +7,7 @@ use nu_protocol::{CustomValue, LabeledError, PipelineData, Signature, Value};
 
 use crate::custom_value::{CustomCollections, CustomReference, HandlebarsRegistry};
 
+mod compile;
 mod eval;
 mod helper;
 mod list;
@@ -35,9 +36,10 @@ impl Plugin for HandlebarsPlugin {
                 name: "handlebars",
                 description: "Operate with the Handlebars template engine",
             }) as Box<dyn PluginCommand<Plugin = Self>>,
-            Box::new(eval::HandlebarsEvalCommand),
             Box::new(new::HandlebarsNewCommand),
             Box::new(helper::HandlebarsHelperCommand),
+            Box::new(eval::HandlebarsEvalCommand),
+            Box::new(compile::HandlebarsCompileCommand),
         ]
         .into_iter()
         .chain(list::gen_commands())
@@ -141,20 +143,18 @@ impl PluginCommand for MidNodeCommand {
 
 fn extract_reference_from_input<C: CustomValue + CustomReference>(
     input: &PipelineData,
-) -> Result<&C, LabeledError> {
-    if let PipelineData::Value(
-        Value::Custom {
-            val: input,
-            internal_span: _,
-            ..
-        },
-        _,
-    ) = input
-        && let Some(reference) = input.as_any().downcast_ref::<C>()
-    {
-        Ok(reference)
-    } else {
-        Err(LabeledError::new(format!("Expected {}", C::NAME))
-            .with_label(format!("not {}", C::NAME), input.span().unwrap_or_default()))
+) -> Result<Option<&C>, LabeledError> {
+    match input {
+        PipelineData::Empty => Ok(None),
+        PipelineData::Value(
+            Value::Custom {
+                val: input,
+                internal_span: _,
+                ..
+            },
+            _,
+        ) if let Some(reference) = input.as_any().downcast_ref::<C>() => Ok(Some(reference)),
+        _ => Err(LabeledError::new(format!("Expected {}", C::NAME))
+            .with_label(format!("not {}", C::NAME), input.span().unwrap_or_default())),
     }
 }

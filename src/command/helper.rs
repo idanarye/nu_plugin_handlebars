@@ -47,7 +47,8 @@ impl PluginCommand for HandlebarsHelperCommand {
         call: &nu_plugin::EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let registry_reference: &HandlebarsRegistry = extract_reference_from_input(&input)?;
+        let registry_reference: &HandlebarsRegistry =
+            extract_reference_from_input(&input)?.expect("Signature should prevent this");
 
         let name: String = call.req(0)?;
         let closure: Spanned<Closure> = call.req(1)?;

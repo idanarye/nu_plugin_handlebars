@@ -65,10 +65,11 @@ where
         &self,
         plugin: &Self::Plugin,
         _engine: &nu_plugin::EngineInterface,
-        _call: &nu_plugin::EvaluatedCall,
+        call: &nu_plugin::EvaluatedCall,
         mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let registry_reference: &HandlebarsRegistry = extract_reference_from_input(&input)?;
+        let registry_reference: &HandlebarsRegistry =
+            extract_reference_from_input(&input)?.expect("Signature should prevent this");
         let registries = plugin.collections.registries.read().unwrap();
         let Some(entry) = registries.get(registry_reference.uuid()) else {
             return Err(LabeledError::new("HandlebarsRegistry is not registered")
