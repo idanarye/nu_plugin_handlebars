@@ -52,9 +52,9 @@ handlebars::handlebars_helper!(foo: | | {
     "I am foo"
 });
 
-struct NuClosureHelper {
-    engine: EngineInterface,
-    closure: Spanned<Closure>,
+pub struct NuClosureHelper {
+    pub engine: EngineInterface,
+    pub closure: Spanned<Closure>,
 }
 
 impl HelperDef for NuClosureHelper {

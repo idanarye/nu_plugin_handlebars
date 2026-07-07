@@ -3,7 +3,7 @@ use nu_protocol::{LabeledError, PipelineData, Signature, Type, Value};
 
 use crate::custom_value::{CustomEntry, CustomReference, HandlebarsRegistry};
 
-use super::{HandlebarsPlugin, MidNodeCommand};
+use super::{HandlebarsPlugin, MidNodeCommand, extract_reference_from_input};
 
 pub struct HandlebarsListCommand<F>
 where
@@ -66,45 +66,18 @@ where
         plugin: &Self::Plugin,
         _engine: &nu_plugin::EngineInterface,
         _call: &nu_plugin::EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let PipelineData::Value(
-            Value::Custom {
-                val: input,
-                internal_span: input_span,
-                ..
-            },
-            pipeline_metadata,
-        ) = input
-        else {
-            return Err(LabeledError::new("Expected an HandlebarsRegistry")
-                .with_label("not HandlebarsRegistry", input.span().unwrap_or_default()));
-        };
-        let Some(registry_reference) = input.as_any().downcast_ref::<HandlebarsRegistry>() else {
-            return Err(LabeledError::new("Expected an HandlebarsRegistry")
-                .with_label("not HandlebarsRegistry", input_span));
-        };
+        let registry_reference: &HandlebarsRegistry = extract_reference_from_input(&input)?;
         let collections = plugin.collections.read().unwrap();
         let Some(entry) = collections.registries.get(registry_reference.uuid()) else {
             return Err(LabeledError::new("HandlebarsRegistry is not registered")
-                .with_label("not registered", input_span)
+                .with_label("not registered", input.span().unwrap_or_default())
                 .with_help("This is probably a bug in the nu_plugin_handlebars"));
         };
         Ok(PipelineData::Value(
-            Value::list((self.extractor)(&entry), input_span),
-            pipeline_metadata,
+            Value::list((self.extractor)(entry), input.span().unwrap_or_default()),
+            input.take_metadata(),
         ))
-        // Ok(PipelineData::Value(
-        // Value::list(
-        // entry
-        // .data
-        // .get_templates()
-        // .keys()
-        // .map(|v| Value::string(v, Default::default()))
-        // .collect(),
-        // input_span,
-        // ),
-        // pipeline_metadata,
-        // ))
     }
 }

@@ -1,11 +1,12 @@
 use std::sync::RwLock;
 
 use nu_plugin::{Plugin, PluginCommand};
-use nu_protocol::{PipelineData, Signature, Value};
+use nu_protocol::{CustomValue, LabeledError, PipelineData, Signature, Value};
 
-use crate::custom_value::CustomCollections;
+use crate::custom_value::{CustomCollections, CustomReference};
 
 mod eval;
+mod helper;
 mod list;
 mod new;
 
@@ -27,6 +28,7 @@ impl Plugin for HandlebarsPlugin {
             }) as Box<dyn PluginCommand<Plugin = Self>>,
             Box::new(eval::HandlebarsEvalCommand),
             Box::new(new::HandlebarsNewCommand),
+            Box::new(helper::HandlebarsHelperCommand),
         ]
         .into_iter()
         .chain(list::gen_commands())
@@ -35,10 +37,14 @@ impl Plugin for HandlebarsPlugin {
 
     fn custom_value_dropped(
         &self,
-        _engine: &nu_plugin::EngineInterface,
+        engine: &nu_plugin::EngineInterface,
         custom_value: Box<dyn nu_protocol::CustomValue>,
     ) -> Result<(), nu_protocol::LabeledError> {
+        let collections = self.collections.read().unwrap();
         eprintln!("Dropping {:?}", custom_value);
+        if collections.is_empty() {
+            engine.set_gc_disabled(false)?;
+        }
         Ok(())
     }
 }
@@ -74,5 +80,25 @@ impl PluginCommand for MidNodeCommand {
             Value::string(engine.get_help()?, call.head),
             None,
         ))
+    }
+}
+
+fn extract_reference_from_input<C: CustomValue + CustomReference>(
+    input: &PipelineData,
+) -> Result<&C, LabeledError> {
+    if let PipelineData::Value(
+        Value::Custom {
+            val: input,
+            internal_span: _,
+            ..
+        },
+        _,
+    ) = input
+        && let Some(reference) = input.as_any().downcast_ref::<C>()
+    {
+        Ok(reference)
+    } else {
+        Err(LabeledError::new(format!("Expected {}", C::NAME))
+            .with_label(format!("not {}", C::NAME), input.span().unwrap_or_default()))
     }
 }

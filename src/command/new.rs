@@ -28,7 +28,7 @@ impl PluginCommand for HandlebarsNewCommand {
     fn run(
         &self,
         plugin: &Self::Plugin,
-        _engine: &nu_plugin::EngineInterface,
+        engine: &nu_plugin::EngineInterface,
         call: &nu_plugin::EvaluatedCall,
         _input: PipelineData,
     ) -> Result<PipelineData, nu_protocol::LabeledError> {
@@ -41,6 +41,7 @@ impl PluginCommand for HandlebarsNewCommand {
                 data: Handlebars::new(),
             },
         );
+        engine.set_gc_disabled(true)?;
         Ok(PipelineData::value(reference.into_value(call.head), None))
     }
 }
