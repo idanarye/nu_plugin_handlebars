@@ -28,18 +28,6 @@ impl PluginCommand for HandlebarsEvalCommand {
                 "Evaluate the template using an Handlebars registry (can be created with `handlebars new`)",
                 None
             )
-            .named(
-                "helpers",
-                SyntaxShape::Record(Default::default()),
-                "Define helpers as a record where the values are Nu closures",
-                None,
-            )
-            .named(
-                "partials",
-                SyntaxShape::Record(Default::default()),
-                "Define partials as a record where the values are Handlebars partial templates as strings (not file paths)",
-                None,
-            )
             .input_output_types(vec![
                 (Type::Nothing, Type::Closure),
                 (Type::record(), Type::String),
