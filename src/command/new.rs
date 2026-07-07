@@ -37,7 +37,7 @@ impl PluginCommand for HandlebarsNewCommand {
             *reference.uuid(),
             CustomEntry {
                 reference: reference.clone(),
-                refcount: 0,
+                refcount: 1,
                 data: Handlebars::new(),
             },
         );

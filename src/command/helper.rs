@@ -53,18 +53,19 @@ impl PluginCommand for HandlebarsHelperCommand {
         let closure: Spanned<Closure> = call.req(1)?;
 
         let mut collections = plugin.collections.write().unwrap();
-        let Some(registry) = collections.registries.get_mut(registry_reference.uuid()) else {
+        let Some(registry_entry) = collections.registries.get_mut(registry_reference.uuid()) else {
             return Err(LabeledError::new("HandlebarsRegistry is not registered")
                 .with_label("not registered", input.span().unwrap_or_default())
                 .with_help("This is probably a bug in the nu_plugin_handlebars"));
         };
-        registry.data.register_helper(
+        registry_entry.data.register_helper(
             &name,
             Box::new(NuClosureHelper {
                 engine: engine.clone(),
                 closure,
             }),
         );
+        registry_entry.refcount += 1;
         Ok(input)
     }
 }
