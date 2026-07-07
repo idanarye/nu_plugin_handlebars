@@ -1,5 +1,7 @@
 mod registry;
 
+use std::sync::RwLock;
+
 use hashbrown::HashMap;
 pub use registry::HandlebarsRegistry;
 use uuid::Uuid;
@@ -20,11 +22,11 @@ pub struct CustomEntry<C: CustomReference> {
 
 #[derive(Default, Debug)]
 pub struct CustomCollections {
-    pub registries: HashMap<Uuid, CustomEntry<HandlebarsRegistry>>,
+    pub registries: RwLock<HashMap<Uuid, CustomEntry<HandlebarsRegistry>>>,
 }
 
 impl CustomCollections {
     pub fn is_empty(&self) -> bool {
-        self.registries.is_empty()
+        self.registries.read().unwrap().is_empty()
     }
 }

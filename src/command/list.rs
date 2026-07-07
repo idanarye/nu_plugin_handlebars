@@ -69,8 +69,8 @@ where
         mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let registry_reference: &HandlebarsRegistry = extract_reference_from_input(&input)?;
-        let collections = plugin.collections.read().unwrap();
-        let Some(entry) = collections.registries.get(registry_reference.uuid()) else {
+        let registries = plugin.collections.registries.read().unwrap();
+        let Some(entry) = registries.get(registry_reference.uuid()) else {
             return Err(LabeledError::new("HandlebarsRegistry is not registered")
                 .with_label("not registered", input.span().unwrap_or_default())
                 .with_help("This is probably a bug in the nu_plugin_handlebars"));

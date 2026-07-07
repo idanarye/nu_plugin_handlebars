@@ -1,5 +1,4 @@
 use std::any::TypeId;
-use std::sync::RwLock;
 
 use hashbrown::HashMap;
 use hashbrown::hash_map::Entry;
@@ -17,11 +16,11 @@ type BoxedDropHandler = Box<
     dyn 'static
         + Send
         + Sync
-        + Fn(&mut CustomCollections, &EngineInterface, &dyn CustomValue) -> Result<(), LabeledError>,
+        + Fn(&CustomCollections, &EngineInterface, &dyn CustomValue) -> Result<(), LabeledError>,
 >;
 
 pub struct HandlebarsPlugin {
-    pub collections: RwLock<CustomCollections>,
+    pub collections: CustomCollections,
     drop_handlers: HashMap<TypeId, BoxedDropHandler>,
 }
 
@@ -53,9 +52,8 @@ impl Plugin for HandlebarsPlugin {
         let Some(handler) = self.drop_handlers.get(&custom_value.type_id()) else {
             return Ok(());
         };
-        let mut collections = self.collections.write().unwrap();
-        let result = handler(&mut collections, engine, custom_value.as_ref());
-        if collections.is_empty() {
+        let result = handler(&self.collections, engine, custom_value.as_ref());
+        if self.collections.is_empty() {
             engine.set_gc_disabled(false)?;
         }
         result
@@ -63,6 +61,7 @@ impl Plugin for HandlebarsPlugin {
 }
 
 impl HandlebarsPlugin {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             collections: Default::default(),
@@ -76,7 +75,7 @@ impl HandlebarsPlugin {
     }
 
     fn gen_handler<C: CustomValue>(
-        dlg: fn(&mut CustomCollections, &EngineInterface, &C) -> Result<(), LabeledError>,
+        dlg: fn(&CustomCollections, &EngineInterface, &C) -> Result<(), LabeledError>,
     ) -> BoxedDropHandler {
         Box::new(move |collections, engine, custom_value| {
             let concrete_value = custom_value
@@ -88,12 +87,12 @@ impl HandlebarsPlugin {
     }
 
     fn handle_drop_registry(
-        collections: &mut CustomCollections,
+        collections: &CustomCollections,
         _engine: &EngineInterface,
         registry_reference: &HandlebarsRegistry,
     ) -> Result<(), LabeledError> {
-        let Entry::Occupied(mut entry) = collections.registries.entry(*registry_reference.uuid())
-        else {
+        let mut registries = collections.registries.write().unwrap();
+        let Entry::Occupied(mut entry) = registries.entry(*registry_reference.uuid()) else {
             return Ok(());
         };
         let entry_mut = entry.get_mut();
