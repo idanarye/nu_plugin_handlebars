@@ -1,10 +1,8 @@
-use handlebars::{Context, Handlebars};
+use handlebars::Handlebars;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{
-    LabeledError, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
-};
+use nu_protocol::{LabeledError, PipelineData, Signature, Spanned, SyntaxShape, Type, Value};
 
-use crate::conversions::nu_value_to_json_value;
+use crate::conversions::nu_input_to_handlebars_context;
 use crate::custom_value::{CustomReference, TemplateReference};
 use crate::handlebars_tools::render_toplevel_handlebars_template;
 
@@ -40,27 +38,7 @@ impl PluginCommand for HandlebarsRenderCommand {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let context = match input {
-            PipelineData::Empty => {
-                return Err(
-                    LabeledError::new("No data to render").with_label("needs input", call.head)
-                );
-            }
-            PipelineData::Value(value, _pipeline_metadata) => {
-                Context::from(nu_value_to_json_value(&value)?)
-            }
-            PipelineData::ListStream(list_stream, _pipeline_metadata) => {
-                Context::from(nu_value_to_json_value(&list_stream.into_value()?)?)
-            }
-            PipelineData::ByteStream(_byte_stream, _pipeline_metadata) => {
-                return Err(ShellError::PipelineMismatch {
-                    exp_input_type: "Structured Nu data".to_owned(),
-                    dst_span: call.head,
-                    src_span: _byte_stream.span(),
-                }
-                .into());
-            }
-        };
+        let context = nu_input_to_handlebars_context(input, call.head)?;
 
         let template_reference: Spanned<TemplateReference> = call.req(0)?;
         let templates = plugin.collections.templates.read().unwrap();

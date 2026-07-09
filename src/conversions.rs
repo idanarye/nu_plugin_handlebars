@@ -1,5 +1,5 @@
-use handlebars::{RenderError, RenderErrorReason};
-use nu_protocol::{LabeledError, Span, Value};
+use handlebars::{Context, RenderError, RenderErrorReason};
+use nu_protocol::{LabeledError, PipelineData, ShellError, Span, Value};
 use serde_json::{Number as JsonNumber, Value as JsonValue};
 
 pub fn nu_value_to_json_value(nu_value: &Value) -> Result<JsonValue, LabeledError> {
@@ -37,6 +37,31 @@ pub fn nu_value_to_json_value(nu_value: &Value) -> Result<JsonValue, LabeledErro
             .with_label("not supported", nu_value.span()));
         }
     })
+}
+
+pub fn nu_input_to_handlebars_context(
+    input: PipelineData,
+    call_span: Span,
+) -> Result<Context, LabeledError> {
+    match input {
+        PipelineData::Empty => {
+            Err(LabeledError::new("No data to render").with_label("needs input", call_span))
+        }
+        PipelineData::Value(value, _pipeline_metadata) => {
+            Ok(Context::from(nu_value_to_json_value(&value)?))
+        }
+        PipelineData::ListStream(list_stream, _pipeline_metadata) => Ok(Context::from(
+            nu_value_to_json_value(&list_stream.into_value()?)?,
+        )),
+        PipelineData::ByteStream(_byte_stream, _pipeline_metadata) => {
+            Err(ShellError::PipelineMismatch {
+                exp_input_type: "Structured Nu data".to_owned(),
+                dst_span: call_span,
+                src_span: _byte_stream.span(),
+            }
+            .into())
+        }
+    }
 }
 
 pub fn json_value_to_nu(json_value: &JsonValue) -> Result<Value, RenderError> {
