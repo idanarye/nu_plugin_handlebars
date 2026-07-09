@@ -5,7 +5,7 @@ use nu_protocol::{
 };
 
 use crate::conversions::nu_value_to_json_value;
-use crate::custom_value::{CustomReference, HandlebarsRegistry};
+use crate::custom_value::{CustomReference, RegistryReference};
 use crate::handlebars_tools::render_toplevel_handlebars_template;
 
 use super::HandlebarsPlugin;
@@ -54,7 +54,7 @@ impl PluginCommand for HandlebarsEvalCommand {
         let hb_memory_slot;
         let registry_lock;
         let hb = if let Some(registry_reference) =
-            call.get_flag::<Spanned<HandlebarsRegistry>>("with")?
+            call.get_flag::<Spanned<RegistryReference>>("with")?
         {
             registry_lock = _plugin.collections.registries.read().unwrap();
             let Some(registry) = registry_lock.get(registry_reference.item.uuid()) else {

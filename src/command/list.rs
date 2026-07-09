@@ -1,13 +1,13 @@
 use nu_plugin::PluginCommand;
 use nu_protocol::{LabeledError, PipelineData, Signature, Type, Value};
 
-use crate::custom_value::{CustomEntry, CustomReference, HandlebarsRegistry};
+use crate::custom_value::{CustomEntry, CustomReference, RegistryReference};
 
 use super::{HandlebarsPlugin, MidNodeCommand, extract_reference_from_input};
 
 pub struct HandlebarsListCommand<F>
 where
-    F: 'static + Send + Sync + Fn(&CustomEntry<HandlebarsRegistry>) -> Vec<Value>,
+    F: 'static + Send + Sync + Fn(&CustomEntry<RegistryReference>) -> Vec<Value>,
 {
     name: &'static str,
     description: &'static str,
@@ -43,7 +43,7 @@ pub fn gen_commands() -> impl Iterator<Item = Box<dyn PluginCommand<Plugin = Han
 
 impl<F> PluginCommand for HandlebarsListCommand<F>
 where
-    F: 'static + Send + Sync + Fn(&CustomEntry<HandlebarsRegistry>) -> Vec<Value>,
+    F: 'static + Send + Sync + Fn(&CustomEntry<RegistryReference>) -> Vec<Value>,
 {
     type Plugin = HandlebarsPlugin;
 
@@ -65,10 +65,10 @@ where
         &self,
         plugin: &Self::Plugin,
         _engine: &nu_plugin::EngineInterface,
-        call: &nu_plugin::EvaluatedCall,
+        _call: &nu_plugin::EvaluatedCall,
         mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let registry_reference: &HandlebarsRegistry =
+        let registry_reference: &RegistryReference =
             extract_reference_from_input(&input)?.expect("Signature should prevent this");
         let registries = plugin.collections.registries.read().unwrap();
         let Some(entry) = registries.get(registry_reference.uuid()) else {

@@ -5,7 +5,7 @@ use hashbrown::hash_map::Entry;
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 use nu_protocol::{CustomValue, LabeledError, PipelineData, Signature, Value};
 
-use crate::custom_value::{CustomCollections, CustomReference, HandlebarsRegistry};
+use crate::custom_value::{CustomCollections, CustomReference, RegistryReference};
 
 mod compile;
 mod eval;
@@ -68,7 +68,7 @@ impl HandlebarsPlugin {
         Self {
             collections: Default::default(),
             drop_handlers: [(
-                TypeId::of::<HandlebarsRegistry>(),
+                TypeId::of::<RegistryReference>(),
                 Self::gen_handler(Self::handle_drop_registry),
             )]
             .into_iter()
@@ -91,7 +91,7 @@ impl HandlebarsPlugin {
     fn handle_drop_registry(
         collections: &CustomCollections,
         _engine: &EngineInterface,
-        registry_reference: &HandlebarsRegistry,
+        registry_reference: &RegistryReference,
     ) -> Result<(), LabeledError> {
         let mut registries = collections.registries.write().unwrap();
         let Entry::Occupied(mut entry) = registries.entry(*registry_reference.uuid()) else {

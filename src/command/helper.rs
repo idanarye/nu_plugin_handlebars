@@ -3,7 +3,7 @@ use nu_protocol::engine::Closure;
 use nu_protocol::{LabeledError, PipelineData, Signature, Spanned, SyntaxShape, Type};
 
 use crate::command::extract_reference_from_input;
-use crate::custom_value::{CustomReference, HandlebarsRegistry};
+use crate::custom_value::{CustomReference, RegistryReference};
 use crate::handlebars_tools::NuClosureHelper;
 
 use super::HandlebarsPlugin;
@@ -47,7 +47,7 @@ impl PluginCommand for HandlebarsHelperCommand {
         call: &nu_plugin::EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let registry_reference: &HandlebarsRegistry =
+        let registry_reference: &RegistryReference =
             extract_reference_from_input(&input)?.expect("Signature should prevent this");
 
         let name: String = call.req(0)?;

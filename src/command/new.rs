@@ -3,7 +3,7 @@ use nu_plugin::PluginCommand;
 use nu_protocol::{PipelineData, Signature, Type};
 use uuid::Uuid;
 
-use crate::custom_value::{CustomEntry, CustomReference, HandlebarsRegistry};
+use crate::custom_value::{CustomEntry, CustomReference, RegistryReference};
 
 use super::HandlebarsPlugin;
 
@@ -32,7 +32,7 @@ impl PluginCommand for HandlebarsNewCommand {
         call: &nu_plugin::EvaluatedCall,
         _input: PipelineData,
     ) -> Result<PipelineData, nu_protocol::LabeledError> {
-        let reference = HandlebarsRegistry(Uuid::new_v4());
+        let reference = RegistryReference(Uuid::new_v4());
         plugin.collections.registries.write().unwrap().insert(
             *reference.uuid(),
             CustomEntry {

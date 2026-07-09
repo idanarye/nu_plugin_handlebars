@@ -2,7 +2,7 @@ use handlebars::Template;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{LabeledError, PipelineData, Signature, Spanned, SyntaxShape, Type};
 
-use crate::custom_value::HandlebarsRegistry;
+use crate::custom_value::RegistryReference;
 
 use super::{HandlebarsPlugin, extract_reference_from_input};
 
@@ -73,7 +73,7 @@ impl PluginCommand for HandlebarsCompileCommand {
             }
         };
 
-        let registry_reference: Option<&HandlebarsRegistry> = extract_reference_from_input(&input)?;
+        let registry_reference: Option<&RegistryReference> = extract_reference_from_input(&input)?;
         eprintln!("{registry_reference:?}\n{template:?}");
 
         Ok(PipelineData::empty())
