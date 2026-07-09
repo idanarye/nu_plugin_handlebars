@@ -12,7 +12,6 @@ use crate::custom_value::{
 mod compile;
 mod eval;
 mod helper;
-mod list;
 mod new;
 mod render;
 
@@ -46,7 +45,6 @@ impl Plugin for HandlebarsPlugin {
             Box::new(render::HandlebarsRenderCommand),
         ]
         .into_iter()
-        .chain(list::gen_commands())
         .collect()
     }
 
