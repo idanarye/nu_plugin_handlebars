@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use handlebars::Template;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{LabeledError, PipelineData, Signature, Spanned, SyntaxShape, Type};
@@ -51,7 +53,7 @@ impl PluginCommand for HandlebarsCompileCommand {
     ) -> Result<PipelineData, LabeledError> {
         let template = match (
             call.get_flag::<Spanned<String>>("text")?,
-            call.get_flag::<Spanned<String>>("file")?,
+            call.get_flag::<Spanned<PathBuf>>("file")?,
         ) {
             (None, None) => {
                 return Err(LabeledError::new("Need either `--text` or `--file`")
@@ -72,7 +74,7 @@ impl PluginCommand for HandlebarsCompileCommand {
                     std::fs::read_to_string(full_path).map_err(|err| {
                         LabeledError::new(err.to_string()).with_label("this", file.span)
                     })?,
-                    file.item,
+                    file.item.to_string_lossy().into_owned(),
                 )
                 .map_err(|err| {
                     LabeledError::new(err.to_string()).with_label("this file", file.span)
