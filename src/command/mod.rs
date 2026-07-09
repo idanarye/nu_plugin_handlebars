@@ -1,9 +1,11 @@
 use std::any::TypeId;
+use std::path::PathBuf;
 
+use handlebars::Template;
 use hashbrown::HashMap;
 use hashbrown::hash_map::Entry;
-use nu_plugin::{EngineInterface, Plugin, PluginCommand};
-use nu_protocol::{CustomValue, LabeledError, PipelineData, Signature, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, Plugin, PluginCommand};
+use nu_protocol::{CustomValue, LabeledError, PipelineData, Signature, Spanned, Value};
 
 use crate::custom_value::{
     CustomCollections, CustomReference, RegistryReference, TemplateReference,
@@ -13,6 +15,7 @@ mod compile;
 mod eval;
 mod helper;
 mod new;
+mod partial;
 mod render;
 
 type BoxedDropHandler = Box<
@@ -40,6 +43,7 @@ impl Plugin for HandlebarsPlugin {
             }) as Box<dyn PluginCommand<Plugin = Self>>,
             Box::new(new::HandlebarsNewCommand),
             Box::new(helper::HandlebarsHelperCommand),
+            Box::new(partial::HandlebarsPartialCommand),
             Box::new(eval::HandlebarsEvalCommand),
             Box::new(compile::HandlebarsCompileCommand),
             Box::new(render::HandlebarsRenderCommand),
@@ -184,4 +188,42 @@ fn extract_reference_from_input<C: CustomValue + CustomReference>(
         _ => Err(LabeledError::new(format!("Expected {}", C::NAME))
             .with_label(format!("not {}", C::NAME), input.span().unwrap_or_default())),
     }
+}
+
+pub fn compile_template_from_evaluated_call(
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+) -> Result<Template, LabeledError> {
+    Ok(
+        match (
+            call.get_flag::<Spanned<String>>("text")?,
+            call.get_flag::<Spanned<PathBuf>>("file")?,
+        ) {
+            (None, None) => {
+                return Err(LabeledError::new("Need either `--text` or `--file`")
+                    .with_label("for this", call.head));
+            }
+            (Some(text), Some(file)) => {
+                return Err({
+                    LabeledError::new("Do not provide both `--text` and `--file`")
+                        .with_label("cannot have both", text.span)
+                        .with_label("cannot have both", file.span)
+                });
+            }
+            (Some(text), None) => Template::compile(&text.item)
+                .map_err(|err| LabeledError::new(err.to_string()).with_label("here", text.span))?,
+            (None, Some(file)) => {
+                let full_path = std::path::Path::new(&engine.get_current_dir()?).join(&file.item);
+                Template::compile_with_name(
+                    std::fs::read_to_string(full_path).map_err(|err| {
+                        LabeledError::new(err.to_string()).with_label("this", file.span)
+                    })?,
+                    file.item.to_string_lossy().into_owned(),
+                )
+                .map_err(|err| {
+                    LabeledError::new(err.to_string()).with_label("this file", file.span)
+                })?
+            }
+        },
+    )
 }

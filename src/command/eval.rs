@@ -53,12 +53,12 @@ impl PluginCommand for HandlebarsEvalCommand {
             call.get_flag::<Spanned<RegistryReference>>("with")?
         {
             registry_lock = _plugin.collections.registries.read().unwrap();
-            let Some(registry) = registry_lock.get(registry_reference.item.uuid()) else {
+            let Some(registry_entry) = registry_lock.get(registry_reference.item.uuid()) else {
                 return Err(LabeledError::new("HandlebarsRegistry is not registered")
                     .with_label("not registered", registry_reference.span)
                     .with_help("This is probably a bug in the nu_plugin_handlebars"));
             };
-            &registry.data
+            &registry_entry.data
         } else {
             hb_memory_slot = Handlebars::new();
             &hb_memory_slot
