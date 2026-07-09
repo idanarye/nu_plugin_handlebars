@@ -43,6 +43,12 @@ jobs:
         with:
           path: ~/.cargo
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - uses: hustcer/setup-nu@v3
+        with:
+          version: "0.114"
+      - name: Run Nu tests
+        run: nu ./run_tests.nu
+
   fmt:
    name: Rustfmt
    runs-on: ubuntu-latest
