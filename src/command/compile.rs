@@ -1,8 +1,11 @@
 use handlebars::Template;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{LabeledError, PipelineData, Signature, Spanned, SyntaxShape, Type};
+use uuid::Uuid;
 
-use crate::custom_value::RegistryReference;
+use crate::custom_value::{
+    CustomEntry, CustomReference, RegistryReference, TemplateObject, TemplateReference,
+};
 
 use super::{HandlebarsPlugin, extract_reference_from_input};
 
@@ -41,7 +44,7 @@ impl PluginCommand for HandlebarsCompileCommand {
 
     fn run(
         &self,
-        _plugin: &Self::Plugin,
+        plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
@@ -61,7 +64,8 @@ impl PluginCommand for HandlebarsCompileCommand {
                         .with_label("cannot have both", file.span)
                 });
             }
-            (Some(text), None) => Template::compile(&text.item),
+            (Some(text), None) => Template::compile(&text.item)
+                .map_err(|err| LabeledError::new(err.to_string()).with_label("here", text.span))?,
             (None, Some(file)) => {
                 let full_path = std::path::Path::new(&engine.get_current_dir()?).join(&file.item);
                 Template::compile_with_name(
@@ -70,12 +74,37 @@ impl PluginCommand for HandlebarsCompileCommand {
                     })?,
                     file.item,
                 )
+                .map_err(|err| {
+                    LabeledError::new(err.to_string()).with_label("this file", file.span)
+                })?
             }
         };
 
-        let registry_reference: Option<&RegistryReference> = extract_reference_from_input(&input)?;
-        eprintln!("{registry_reference:?}\n{template:?}");
+        let mut templates = plugin.collections.templates.write().unwrap();
+        let registry_reference = extract_reference_from_input::<RegistryReference>(&input)?;
+        if let Some(registry_reference) = registry_reference {
+            let mut registries = plugin.collections.registries.write().unwrap();
+            let Some(registry_entry) = registries.get_mut(registry_reference.uuid()) else {
+                return Err(LabeledError::new("HandlebarsRegistry is not registered")
+                    .with_label("not registered", input.span().unwrap_or_default())
+                    .with_help("This is probably a bug in the nu_plugin_handlebars"));
+            };
+            registry_entry.refcount += 1;
+        }
+        let reference = TemplateReference(Uuid::new_v4());
+        templates.insert(
+            *reference.uuid(),
+            CustomEntry {
+                reference: reference.clone(),
+                refcount: 1,
+                data: TemplateObject {
+                    registry: registry_reference.cloned(),
+                    template,
+                },
+            },
+        );
 
-        Ok(PipelineData::empty())
+        engine.set_gc_disabled(true)?;
+        Ok(PipelineData::value(reference.into_value(call.head), None))
     }
 }

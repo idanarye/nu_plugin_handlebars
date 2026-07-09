@@ -1,9 +1,11 @@
 mod registry;
+mod template;
 
 use std::sync::RwLock;
 
 use hashbrown::HashMap;
 pub use registry::RegistryReference;
+pub use template::{TemplateObject, TemplateReference};
 use uuid::Uuid;
 
 pub trait CustomReference: Clone {
@@ -23,11 +25,12 @@ pub struct CustomEntry<C: CustomReference> {
 #[derive(Default, Debug)]
 pub struct CustomCollections {
     pub registries: RwLock<HashMap<Uuid, CustomEntry<RegistryReference>>>,
+    pub templates: RwLock<HashMap<Uuid, CustomEntry<TemplateReference>>>,
 }
 
 impl CustomCollections {
     pub fn is_empty(&self) -> bool {
-        self.registries.read().unwrap().is_empty()
+        self.registries.read().unwrap().is_empty() && self.templates.read().unwrap().is_empty()
     }
 }
 
@@ -77,7 +80,7 @@ macro_rules! declare_reference_type {
         }
 
         impl $crate::custom_value::CustomReference for $ref_type {
-            type Data = Handlebars<'static>;
+            type Data = $obj_type;
             const NAME: &str = $obj_name;
 
             fn uuid(&self) -> &uuid::Uuid {

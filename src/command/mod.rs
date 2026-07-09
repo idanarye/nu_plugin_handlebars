@@ -5,7 +5,9 @@ use hashbrown::hash_map::Entry;
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 use nu_protocol::{CustomValue, LabeledError, PipelineData, Signature, Value};
 
-use crate::custom_value::{CustomCollections, CustomReference, RegistryReference};
+use crate::custom_value::{
+    CustomCollections, CustomReference, RegistryReference, TemplateReference,
+};
 
 mod compile;
 mod eval;
@@ -67,10 +69,10 @@ impl HandlebarsPlugin {
     pub fn new() -> Self {
         Self {
             collections: Default::default(),
-            drop_handlers: [(
-                TypeId::of::<RegistryReference>(),
+            drop_handlers: [
                 Self::gen_handler(Self::handle_drop_registry),
-            )]
+                Self::gen_handler(Self::handle_drop_template),
+            ]
             .into_iter()
             .collect(),
         }
@@ -78,14 +80,17 @@ impl HandlebarsPlugin {
 
     fn gen_handler<C: CustomValue>(
         dlg: fn(&CustomCollections, &EngineInterface, &C) -> Result<(), LabeledError>,
-    ) -> BoxedDropHandler {
-        Box::new(move |collections, engine, custom_value| {
-            let concrete_value = custom_value
-                .as_any()
-                .downcast_ref::<C>()
-                .expect("should have been of the correct type");
-            dlg(collections, engine, concrete_value)
-        })
+    ) -> (TypeId, BoxedDropHandler) {
+        (
+            TypeId::of::<C>(),
+            Box::new(move |collections, engine, custom_value| {
+                let concrete_value = custom_value
+                    .as_any()
+                    .downcast_ref::<C>()
+                    .expect("should have been of the correct type");
+                dlg(collections, engine, concrete_value)
+            }),
+        )
     }
 
     fn handle_drop_registry(
@@ -101,6 +106,28 @@ impl HandlebarsPlugin {
         if 1 < entry_mut.refcount {
             entry_mut.refcount -= 1;
         } else {
+            entry.remove();
+        }
+        Ok(())
+    }
+
+    fn handle_drop_template(
+        collections: &CustomCollections,
+        _engine: &EngineInterface,
+        template_reference: &TemplateReference,
+    ) -> Result<(), LabeledError> {
+        let mut templates = collections.templates.write().unwrap();
+        let Entry::Occupied(mut entry) = templates.entry(*template_reference.uuid()) else {
+            return Ok(());
+        };
+        let entry_mut = entry.get_mut();
+        if 1 < entry_mut.refcount {
+            entry_mut.refcount -= 1;
+        } else {
+            if let Some(registry_reference) = &entry_mut.data.registry {
+                Self::handle_drop_registry(collections, _engine, registry_reference)?;
+            }
+
             entry.remove();
         }
         Ok(())
