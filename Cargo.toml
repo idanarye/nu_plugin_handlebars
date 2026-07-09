@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+dedent = "0.1.1"
 handlebars = { version = "6.4.2", features = ["heck"] }
 hashbrown = "0.17.1"
 nu-plugin = "0.114.0"

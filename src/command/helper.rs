@@ -40,6 +40,21 @@ impl PluginCommand for HandlebarsHelperCommand {
         "Register an Handlebars helper"
     }
 
+    fn extra_description(&self) -> &str {
+        dedent::dedent!(
+            r#"
+            The closure implementing the helper receives the helper position arguments as
+            positional arguments.
+
+            The `$in` passed to the closure impelemnting the helper has the following fields:
+
+              * `$in.hash` - a record containing the hash (keyword) arguments passed to the helper.
+
+            NOTE: Block helper are not yet supported.
+            "#
+        )
+    }
+
     fn run(
         &self,
         plugin: &Self::Plugin,

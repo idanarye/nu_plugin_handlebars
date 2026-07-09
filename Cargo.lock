@@ -469,6 +469,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "dedent"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8a3dee4e932355439992a45dc631b0979abf9c677958674bd94298bf9002870"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "derive_builder"
 version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1350,6 +1361,7 @@ dependencies = [
 name = "nu_plugin_handlebars"
 version = "0.1.0"
 dependencies = [
+ "dedent",
  "handlebars",
  "hashbrown",
  "nu-plugin",

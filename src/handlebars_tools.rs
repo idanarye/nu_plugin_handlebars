@@ -6,7 +6,7 @@ use handlebars::{
 };
 use nu_plugin::EngineInterface;
 use nu_protocol::engine::Closure;
-use nu_protocol::{LabeledError, Span, Spanned};
+use nu_protocol::{IntoValue, LabeledError, Span, Spanned, Value};
 
 use crate::conversions::{json_value_to_nu, nu_value_to_json_value};
 
@@ -57,19 +57,26 @@ impl HelperDef for NuClosureHelper {
                 RenderErrorReason::Other("Block helpers are not supported".to_owned()).into(),
             );
         }
+        let positional_arguments = helper
+            .params()
+            .iter()
+            .map(|path_and_json| json_value_to_nu(path_and_json.value()))
+            .collect::<Result<_, _>>()?;
+        let helper_input: Value = HelperInput {
+            hash: helper
+                .hash()
+                .iter()
+                .map(|(name, path_and_json)| {
+                    Ok(((*name).to_owned(), json_value_to_nu(path_and_json.value())?))
+                })
+                .collect::<Result<_, RenderError>>()?,
+        }
+        .into_value(Span::default());
         let closure_result = ENGINE_INTERFACE.with_borrow(|engine| {
             engine
                 .as_ref()
                 .expect("Should have one registered")
-                .eval_closure(
-                    &self.closure,
-                    helper
-                        .params()
-                        .iter()
-                        .map(|path_and_json| json_value_to_nu(path_and_json.value()))
-                        .collect::<Result<_, _>>()?,
-                    None,
-                )
+                .eval_closure(&self.closure, positional_arguments, Some(helper_input))
                 .map_err(|err| RenderErrorReason::Other(err.to_string()))
         })?;
         Ok(ScopedJson::Derived(
@@ -77,4 +84,10 @@ impl HelperDef for NuClosureHelper {
                 .map_err(|err| RenderErrorReason::Other(err.to_string()))?,
         ))
     }
+}
+
+#[derive(IntoValue)]
+struct HelperInput {
+    // Don't use hashbrown because it cannot be converted to a Nu value
+    hash: std::collections::HashMap<String, Value>,
 }
