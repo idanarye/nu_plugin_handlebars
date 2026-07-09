@@ -39,7 +39,7 @@ impl PluginCommand for HandlebarsCompileCommand {
     }
 
     fn description(&self) -> &str {
-        "Render using an Handlebars template"
+        "Compile an Handlebars template"
     }
 
     fn run(

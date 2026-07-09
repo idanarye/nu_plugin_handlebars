@@ -36,7 +36,7 @@ impl PluginCommand for HandlebarsEvalCommand {
     }
 
     fn description(&self) -> &str {
-        "Render using an Handlebars template"
+        "Render using an Handlebars template provided as string"
     }
 
     fn run(

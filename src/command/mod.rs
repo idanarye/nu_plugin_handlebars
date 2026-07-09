@@ -14,6 +14,7 @@ mod eval;
 mod helper;
 mod list;
 mod new;
+mod render;
 
 type BoxedDropHandler = Box<
     dyn 'static
@@ -42,6 +43,7 @@ impl Plugin for HandlebarsPlugin {
             Box::new(helper::HandlebarsHelperCommand),
             Box::new(eval::HandlebarsEvalCommand),
             Box::new(compile::HandlebarsCompileCommand),
+            Box::new(render::HandlebarsRenderCommand),
         ]
         .into_iter()
         .chain(list::gen_commands())
