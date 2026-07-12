@@ -1,3 +1,6 @@
+[![Build Status](https://github.com/idanarye/nu_plugin_handlebars/workflows/CI/badge.svg)](https://github.com/idanarye/nu_plugin_handlebars/actions)
+[![Latest Version](https://img.shields.io/crates/v/nu_plugin_handlebars.svg)](https://crates.io/crates/nu_plugin_handlebars)
+
 # nu_plugin_handlebars
 
 This is a [Nushell](https://nushell.sh/) plugin that adds integrates [Handlebars](https://handlebarsjs.com/) template engine, powered by the [`handlebars`](https://github.com/sunng87/handlebars-rust) crate.
