@@ -5,6 +5,16 @@
 
 This is a [Nushell](https://nushell.sh/) plugin that adds integrates [Handlebars](https://handlebarsjs.com/) template engine, powered by the [`handlebars`](https://github.com/sunng87/handlebars-rust) crate.
 
+# Features
+
+* Redner Handlebars templates from Nushell.
+* The data for Handlebars is Nu values - no need to serialize them.
+* Supports [partials](https://handlebarsjs.com/guide/partials.html).
+* Supports [helpers](https://handlebarsjs.com/guide/expressions.html#helpers).
+
+## Planned features
+
+* [Block helpers](https://handlebarsjs.com/guide/block-helpers.html).
 
 ## Installing
 
