@@ -1,7 +1,14 @@
 [package]
 name = "nu_plugin_handlebars"
 version = "0.1.0"
+authors = ["Idan Arye <IdanArye@gmail.com>"]
 edition = "2024"
+description = "An `handlebars` command for Nushell for rendering Nu values using Handlebars templates"
+repository = "https://github.com/idanarye/nu_plugin_handlebars"
+readme = "README.md"
+keywords = ["nu", "plugin", "handlebars", "templating", "util"]
+categories = ["command-line-utilities", "value-formatting", "template-engine"]
+license = "MIT"
 
 [dependencies]
 dedent = "0.1.1"
