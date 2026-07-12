@@ -1,6 +1,9 @@
 use handlebars::Handlebars;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{LabeledError, PipelineData, Signature, Spanned, SyntaxShape, Type, Value};
+use nu_protocol::{
+    Example, IntoValue, LabeledError, PipelineData, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
+};
 
 use crate::conversions::nu_input_to_handlebars_context;
 use crate::custom_value::{CustomReference, TemplateReference};
@@ -29,6 +32,22 @@ impl PluginCommand for HandlebarsRenderCommand {
 
     fn description(&self) -> &str {
         "Render using a compiled Handlebars template (obtainable via `handlebars compile`)"
+    }
+
+    fn examples(&self) -> Vec<nu_protocol::Example<'_>> {
+        Vec::from([Example {
+            example: dedent::dedent!(
+                r#"
+                             let hb = handlebars new
+                             | handlebars helper add {|a b| $a + $b}
+                             | handlebars partial addition --text "{{x}} + {{y}}"
+                             let tpl = $hb | handlebars compile --text "{{>addition}} = {{add x y}}"
+                             {x: 1, y: 2} | handlebars render $tpl
+                             "#
+            ),
+            description: "Compile and render an Handlebars template",
+            result: Some("1 + 2 = 3".into_value(Span::default())),
+        }])
     }
 
     fn run(

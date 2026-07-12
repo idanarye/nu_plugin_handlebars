@@ -1,6 +1,9 @@
 use handlebars::{Handlebars, Template};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{LabeledError, PipelineData, Signature, Span, Spanned, SyntaxShape, Type, Value};
+use nu_protocol::{
+    Example, IntoValue, LabeledError, PipelineData, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
+};
 
 use crate::conversions::nu_input_to_handlebars_context;
 use crate::custom_value::{CustomReference, RegistryReference};
@@ -31,6 +34,14 @@ impl PluginCommand for HandlebarsEvalCommand {
 
     fn description(&self) -> &str {
         "Render using an Handlebars template provided as string"
+    }
+
+    fn examples(&self) -> Vec<nu_protocol::Example<'_>> {
+        Vec::from([Example {
+            example: r#"{name: "world"} | handlebars eval "Hello {{name}}""#,
+            description: "Evaluate an Handlebars template",
+            result: Some("Hello world".into_value(Span::default())),
+        }])
     }
 
     fn run(
