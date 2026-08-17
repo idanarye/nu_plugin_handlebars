@@ -1,6 +1,6 @@
 [package]
 name = "nu_plugin_handlebars"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Idan Arye <IdanArye@gmail.com>"]
 edition = "2024"
 description = "An `handlebars` command for Nushell for rendering Nu values using Handlebars templates"
