@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/idanarye/nu_plugin_handlebars/compare/v0.3.0...v0.4.0) (2026-11-10)
+
+
+### Features
+
+* Upgrade Nu version to 0.117 ([e4348b7](https://github.com/idanarye/nu_plugin_handlebars/commit/e4348b78d21ce7c078626687a259e74ca97b334f))
+
 ## [0.3.0](https://github.com/idanarye/nu_plugin_handlebars/compare/v0.2.0...v0.3.0) (2026-09-26)
 
 
